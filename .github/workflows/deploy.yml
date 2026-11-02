@@ -1,0 +1,47 @@
+name: Deploy Team Desk
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: team-desk-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # مطلوب لـ WIF
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          for f in *.php; do php -l "$f"; done
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: JS syntax
+        run: node --check assets/app.js
+
+  deploy:
+    needs: test # ما ينشر إلا إذا الفحوصات نجحت
+    runs-on: ubuntu-latest
+    steps:
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: "projects/70234866801/locations/global/workloadIdentityPools/github-pool/providers/github-team-provider"
+          service_account: "gh-deployer@tectova-prod.iam.gserviceaccount.com"
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy over IAP
+        run: |
+          gcloud compute ssh tectova-acc \
+            --zone=us-central1-a \
+            --tunnel-through-iap \
+            --command="sudo bash /var/www/team/deploy/deploy-team.sh"
