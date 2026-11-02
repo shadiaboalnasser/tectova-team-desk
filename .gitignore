@@ -1,0 +1,10 @@
+# Secrets: database password and keys live on the server only
+config.php
+
+# Uploaded project files (on the server only)
+uploads/
+
+# macOS and editor noise
+.DS_Store
+*.log
+

@@ -1,0 +1,34 @@
+# TECTOVA Team Desk — Apache settings
+
+Options -Indexes
+DirectoryIndex index.html
+
+# Uploaded project files are only served through api.php after sign-in
+RedirectMatch 404 /uploads(/|$)
+
+# Never serve the settings file, helpers, or notes
+<FilesMatch "^(config\.php|config\.sample\.php|lib\.php|README.*|.*\.md|.*\.sql|.*\.txt)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Always use HTTPS once SSL is active on the subdomain
+    # ...but not when testing on your own computer (XAMPP / MAMP)
+    RewriteCond %{HTTP_HOST} !^(localhost|127\.0\.0\.1)(:\d+)?$ [NC]
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Frame-Options "DENY"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
