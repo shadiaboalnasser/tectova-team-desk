@@ -459,9 +459,12 @@ if (!$in && $_POST) $in = $_POST;
 try {
     migrate();
 
-    /* ----- machine export for the accounting program (secret key in config.php) ----- */
-    if ($action === 'allocation' && isset($_GET['key'])) {
-        if (!hash_equals(secret_key('export_key'), (string)$_GET['key'])) throw new ApiError('forbidden', 403);
+    /* ----- machine export for the accounting program (secret key in config.php) -----
+       The key may come in the X-Export-Key header (preferred: stays out of server
+       logs and Referer) or, for older callers, in the ?key= query parameter. */
+    if ($action === 'allocation' && (isset($_SERVER['HTTP_X_EXPORT_KEY']) || isset($_GET['key']))) {
+        $provided = (string)($_SERVER['HTTP_X_EXPORT_KEY'] ?? $_GET['key'] ?? '');
+        if (!hash_equals(secret_key('export_key'), $provided)) throw new ApiError('forbidden', 403);
         out(allocation_out(s_ym($_GET['ym'] ?? '')));
     }
 

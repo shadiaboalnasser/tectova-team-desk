@@ -11,6 +11,12 @@ RedirectMatch 404 /uploads(/|$)
     Require all denied
 </FilesMatch>
 
+# Never serve version-control, environment, or hidden dot-files, should any end up on the server
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+RedirectMatch 404 /\.git(/|$)
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     # Always use HTTPS once SSL is active on the subdomain
@@ -26,6 +32,12 @@ RedirectMatch 404 /uploads(/|$)
     Header always set X-Content-Type-Options "nosniff"
     Header always set Referrer-Policy "same-origin"
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    # Lock down powerful browser features the app does not use
+    Header always set Permissions-Policy "geolocation=(), camera=(), microphone=(), payment=(), usb=()"
+    # Tell browsers to stick to HTTPS for a year (only sent over HTTPS). Add ; preload once you are sure.
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+    # Do not advertise the PHP version
+    Header always unset X-Powered-By
 </IfModule>
 
 <IfModule mod_expires.c>
