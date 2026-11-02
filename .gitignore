@@ -1,10 +1,30 @@
-# Secrets: database password and keys live on the server only
+# ── Secrets: database password and keys live on the server only ──
 config.php
 
-# Uploaded project files (on the server only)
+# ── Uploaded project files (on the server only) ──
 uploads/
 
-# macOS and editor noise
-.DS_Store
+# ── Logs ──
 *.log
 
+# ── macOS / Windows noise ──
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ── Editors / IDEs ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── PHP tooling (not used today, ignored if ever added) ──
+/vendor/
+composer.phar
+.phpunit.result.cache
+.php-cs-fixer.cache
+.phpcs-cache
