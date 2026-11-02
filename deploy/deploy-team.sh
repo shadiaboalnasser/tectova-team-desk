@@ -7,8 +7,9 @@ OWNER="shadi21985_gmail_com"
 OWNER_HOME="/home/$OWNER"
 HEALTH_URL="https://team.tectova-eng.com/"
 
-# Git runs as root, so point it at the owner's deploy key and known_hosts
-export GIT_SSH_COMMAND="ssh -F $OWNER_HOME/.ssh/config -o UserKnownHostsFile=$OWNER_HOME/.ssh/known_hosts"
+# Git runs as root, so pass the owner's deploy key by absolute path.
+# (A "~" or -F config path would expand to /root/.ssh and fail.)
+export GIT_SSH_COMMAND="ssh -i $OWNER_HOME/.ssh/team_deploy -o IdentitiesOnly=yes -o UserKnownHostsFile=$OWNER_HOME/.ssh/known_hosts"
 git config --global --add safe.directory "$APP_DIR"
 cd "$APP_DIR"
 
