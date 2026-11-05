@@ -1,8 +1,8 @@
 /* TECTOVA Team Desk — service worker (v2.18).
    Keeps the app shell for fast start and offline opening, and shows push notifications.
    api.php is never cached: data always comes fresh from the server. */
-const V='td-26';
-const SHELL=['./','index.html','manifest.json','assets/app.css?v=26','assets/app.js?v=26','assets/tectova-mark.png','assets/tectova-mark-dark.png','assets/tectova-logo.png','assets/tectova-logo-dark.png',
+const V='td-27';
+const SHELL=['./','index.html','manifest.json','assets/app.css?v=27','assets/app.js?v=27','assets/tectova-mark.png','assets/tectova-mark-dark.png','assets/tectova-logo.png','assets/tectova-logo-dark.png',
  'icons/icon-192.png','icons/badge-72.png','fonts/ibm-plex-sans-arabic-arabic-400-normal.woff2','fonts/ibm-plex-sans-arabic-latin-400-normal.woff2','fonts/ibm-plex-sans-arabic-arabic-600-normal.woff2',
  'fonts/ibm-plex-sans-arabic-latin-600-normal.woff2','fonts/readex-pro-arabic-600-normal.woff2','fonts/readex-pro-latin-600-normal.woff2','fonts/ibm-plex-mono-latin-400-normal.woff2'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(V).then(c=>Promise.allSettled(SHELL.map(u=>c.add(u)))).then(()=>self.skipWaiting()))});
