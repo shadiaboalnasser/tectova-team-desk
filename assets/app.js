@@ -1629,7 +1629,7 @@ function orgTableHtml(tk){
 
 function orgHtml(){
  const tk=todayK();const act=Object.entries(S.members).filter(([,m])=>m.active!==false);
- const admins=act.filter(([,m])=>m.sysRole==='owner').map(([u])=>u);const fin=act.filter(([,m])=>m.sysRole==='accountant').map(([u])=>u);
+ const teamLeadIds=new Set(Object.values(S.teams).map(tm=>tm.leadId).filter(Boolean));const admins=act.filter(([u,m])=>m.sysRole==='owner'&&!teamLeadIds.has(u)).map(([u])=>u);const fin=act.filter(([u,m])=>m.sysRole==='accountant'&&!teamLeadIds.has(u)).map(([u])=>u);
  const counts={};for(const[,m]of act)if(m.sysRole!=='owner'&&m.sysRole!=='accountant')counts[m.discipline]=(counts[m.discipline]||0)+1;
  const n=isLead()?myMembers().size:0;if(S.orgView==='admin'&&!(S.isOwner||S.isFin||pm('team')))S.orgView='people';const v=S.orgView;
  const seg=`<div class="tv-bar"><div class="seg" role="tablist" aria-label="${esc(t('ovViews'))}">${OVIEWS.filter(k=>k!=='admin'||S.isOwner||S.isFin||pm('team')).map(k=>`<button type="button" role="tab" aria-selected="${k===v}" data-act="ov" data-v="${k}">${OV_ICON[k]}<span>${esc(t(OV_LABEL[k]))}</span></button>`).join('')}</div></div>`;
