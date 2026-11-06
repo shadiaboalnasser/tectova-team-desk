@@ -62,6 +62,7 @@ foreach ($users as $u) $byId[(int)$u['id']] = $u;
 /* 1. Daily reminder to log hours */
 foreach ($users as $u) {
     if (!(int)$u['notify']) continue;
+    if (user_is_admin_dept((int)$u['id'])) continue;
     $now = local_now($u['country']);
     if ((int)$now->format('G') !== $reminderHour) continue;
     $day = $now->format('Y-m-d');

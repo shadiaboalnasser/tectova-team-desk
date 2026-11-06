@@ -167,7 +167,7 @@ function s_ym($v): string
 }
 
 /* ---------- schema: versioned migrations, applied automatically ---------- */
-const TD_SCHEMA_VERSION = 20;
+const TD_SCHEMA_VERSION = 21;
 function td_migrations(): array
 {
     return [
@@ -369,6 +369,10 @@ function td_migrations(): array
               p256dh VARCHAR(120) NOT NULL, auth VARCHAR(40) NOT NULL, ua VARCHAR(200) NOT NULL DEFAULT '', created_at DATETIME NOT NULL, last_ok DATETIME NULL,
               UNIQUE KEY (ep_hash), INDEX (user_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
         ],
+        21 => [
+            /* administrative departments (e.g. accounting): their members do not log hours on projects */
+            "ALTER TABLE td_teams ADD COLUMN administrative TINYINT(1) NOT NULL DEFAULT 0",
+        ],
     ];
 }
 
@@ -398,6 +402,13 @@ function migrate(): void
         }
         q("REPLACE INTO td_meta (k, v) VALUES ('schema', ?)", [(string)$ver]);
     }
+}
+
+/** True when the user belongs to, or leads, an administrative team (no project hours). */
+function user_is_admin_dept(int $uid): bool
+{
+    $r = q("SELECT 1 FROM td_users u LEFT JOIN td_teams t ON (t.id = u.team_id OR t.lead_id = u.id) WHERE u.id = ? AND t.administrative = 1 LIMIT 1", [$uid]);
+    return (bool) $r->fetch();
 }
 
 /* ---------- calendar helpers (shared by the API and the reminder job) ---------- */

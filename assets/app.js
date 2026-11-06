@@ -227,6 +227,8 @@ const projList=(all)=>Object.entries(S.projects).map(([id,p])=>({...p,id})).filt
 const pColor=id=>themed((S.projects[id]&&S.projects[id].color)||'#7D8A95');
 const pLabel=id=>{const p=S.projects[id];return p?(p.code?p.code+' · ':'')+p.name:'—'};
 const isLead=()=>S.leads.includes(S.uid);
+const teamAdmin=tid=>!!(tid&&S.teams[tid]&&S.teams[tid].administrative);
+const isAdminUser=uid=>{uid=uid||S.uid;const m=S.members[uid]||{};return teamAdmin(m.teamId)||Object.values(S.teams).some(tm=>tm.administrative&&tm.leadId===uid)};
 const canAddTasks=()=>allP()||isLead();
 const canEditTask=x=>allP()||(isLead()&&(x._o===S.uid||(!!x.assignee&&myMembers().has(x.assignee))));
 const canAddProjects=()=>allP()||isLead();
@@ -265,7 +267,7 @@ function summarize(items){const byP={};let total=0;const days=new Set();for(cons
 function avatar(uid,size){const n=memberName(uid);return `<span class="av" style="background:${colorFor(uid)}${size?`;width:${size}px;height:${size}px`:''}">${esc(initials(n))}</span>`}
 function pChip(id){return `<span class="chip"><i class="sw" style="background:${esc(pColor(id))}"></i><span class="t" dir="auto">${esc(pLabel(id))}</span></span>`}
 /* ---------- chrome ---------- */
-function tabsFor(){const tabs=['profile','home','timer','tasks','planner','projects'];if(seesClients())tabs.push('clients');tabs.push('files','company','notes','tags','leave','team');if(seesTeam())tabs.push('approvals','capacity');tabs.push('reports');if(S.isFin)tabs.push('payroll');return tabs}
+function tabsFor(){const tabs=isAdminUser()?['profile','home','planner','projects']:['profile','home','timer','tasks','planner','projects'];if(seesClients())tabs.push('clients');tabs.push('files','company','notes','tags','leave','team');if(seesTeam())tabs.push('approvals','capacity');tabs.push('reports');if(S.isFin)tabs.push('payroll');return tabs}
 const tabLabel={planner:'tabPlanner',clients:'tabClients',company:'tabCompany',profile:'tabProfile',org:'tabOrg',home:'tabHome',files:'tabFiles',notes:'tabNotes',tags:'tabTags',timer:'tabTimer',tasks:'tabTasks',projects:'tabProjects',leave:'tabLeave',team:'tabTeam',approvals:'tabApprovals',capacity:'tabCapacity',reports:'tabReports',payroll:'tabPayroll'};
 /* ---------- v2.5: sidebar icons ---------- */
 const svg=p=>`<svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
@@ -794,11 +796,11 @@ function projectsHtml(){
 }
 
 function teamHtml(){
- const ms=Object.entries(S.members).filter(([,m])=>!m.deleted).sort((a,b)=>(a[1].active===false)-(b[1].active===false)||String(a[1].name).localeCompare(String(b[1].name)));
+ const ms=Object.entries(S.members).filter(([,m])=>!m.deleted&&(!S.orgDisc||m.discipline===S.orgDisc)).sort((a,b)=>(a[1].active===false)-(b[1].active===false)||String(a[1].name).localeCompare(String(b[1].name)));
  const cym=ymOf(new Date());if(pm('team')&&!S.report[cym])loadReport(cym);const rep=S.report[cym];
  const cards=ms.map(([u,m])=>{const e=S.entryDocs[u];const r=e&&e.running;const mins=rep&&rep.items?summarize(rep.items[u]).total:null;
   return `<article class="tcard"${m.active===false?' style="opacity:.6"':''}>
-   <div class="who">${avatar(u,36)}<div style="min-width:0"><div class="nm">${esc(m.name)}${u===S.uid?` <span class="muted">(${esc(t('you'))})</span>`:''}</div><div style="display:flex;gap:4px;flex-wrap:wrap">${memberRolePill(u)}</div><div class="rl">${esc(m.role||t(m.discipline||'ARC'))}</div>${pm('team')&&m.email?`<div class="email">${esc(m.email)}${m.phone?' · '+esc(m.phone):''}</div>`:''}</div>${S.isOwner?`<button class="btn ghost sm" style="margin-inline-start:auto" data-act="edit-member" data-id="${esc(u)}">${esc(t('edit'))}</button>`:''}</div>
+   <div class="who">${avatar(u,36)}<div style="min-width:0"><div class="nm">${esc(m.name)}${u===S.uid?` <span class="muted">(${esc(t('you'))})</span>`:''}</div><div style="display:flex;gap:4px;flex-wrap:wrap">${memberRolePill(u)}${isAdminUser(u)?`<span class="pill acc">${esc(t('adminDept'))}</span>`:''}</div><div class="rl">${esc(m.role||t(m.discipline||'ARC'))}</div>${pm('team')&&m.email?`<div class="email">${esc(m.email)}${m.phone?' · '+esc(m.phone):''}</div>`:''}</div>${S.isOwner?`<button class="btn ghost sm" style="margin-inline-start:auto" data-act="edit-member" data-id="${esc(u)}">${esc(t('edit'))}</button>`:''}</div>
    <div class="loc"><span>${esc(t(m.country||'DE'))} · ${esc(t('localTime'))}</span><b data-tz="${esc(m.country||'DE')}">${localNow(m.country)}</b></div>
    ${m.discipline?`<div><span class="badge">${esc(m.discipline)}</span> <span class="muted" style="font-size:12.5px">${esc(t(m.discipline))}</span>${m.active===false?` <span class="pill mute">${esc(t('inactive'))}</span>`:''}</div>`:''}
    ${S.isOwner?`<div class="status${r?' on':''}">${r?`<b>${esc(t('workingOn'))}</b> ${esc(pLabel(r.projectId))}${r.taskId&&S.tasks[r.taskId]?' — '+esc(S.tasks[r.taskId].title):''} · <span dir="ltr" data-tick="${r.start}">${clock(srvNow()-r.start)}</span>`:esc(t('idle'))}</div>
@@ -1508,7 +1510,7 @@ function orgTeam(tm,tk,depth){
  const lead=tm.leadId&&S.members[tm.leadId]?orgMember(tm.leadId,tk,true):`<div class="om-nolead">${esc(t('orgNoLead'))}</div>`;
  const kids=kidsOf(tm.id);
  return `<li class="on"><div class="ot${mine?' mine':''}${hit?' hit':''}" style="--tc:${esc(tm.color||DCOL[tm.discipline]||'#2F7FB5')}">
-  <div class="ot-h"><span class="ot-n"><b dir="auto">${esc(tm.name)}</b>${discBadge(tm.discipline)}${mine?`<span class="pill acc">${esc(t('orgYours'))}</span>`:''}</span>
+  <div class="ot-h"><span class="ot-n"><b dir="auto">${esc(tm.name)}</b>${discBadge(tm.discipline)}${tm.administrative?`<span class="pill acc">${esc(t('adminDept'))}</span>`:''}${mine?`<span class="pill acc">${esc(t('orgYours'))}</span>`:''}</span>
    <span class="ot-c"><span title="${esc(t('orgMembers'))}">${IC.team}${all.length}</span><span title="${esc(t('openTasks'))}">${IC.tasks}${open}</span>${late?`<span class="bad" title="${esc(t('overdue'))}">! ${late}</span>`:''}</span>
    ${S.isOwner&&!S.readOnly?`<button type="button" class="btn ghost sm" data-act="team-edit" data-id="${esc(tm.id)}">${esc(t('edit'))}</button>`:''}</div>
   <div class="ot-l"><span class="ot-lbl">${esc(t('orgLeader'))}</span>${lead}</div>
@@ -1527,6 +1529,8 @@ function teamModal(id){
   <div class="frow"><label class="f">${esc(t('orgLeader'))}<select class="in" id="tm-lead"><option value="">${esc(t('orgNoLeadOpt'))}</option>${leads.map(([u,m])=>`<option value="${esc(u)}"${u===tm.leadId?' selected':''}>${esc(m.name)} · ${esc(t(ROLE_KEY[m.sysRole]))}</option>`).join('')}</select></label>
    <label class="f">${esc(t('orgParent'))}<select class="in" id="tm-parent"><option value="">${esc(t('orgTopLevel'))}</option>${teamOptions(tm.parentId,ex)}</select></label></div>
   <div class="muted" style="font-size:12.5px">${esc(t('orgLeadHint'))}</div>
+  <label class="chk"><input type="checkbox" id="tm-admin"${tm.administrative?' checked':''}> ${esc(t('tmAdmin'))}</label>
+  <div class="muted" style="font-size:12px">${esc(t('tmAdminHint'))}</div>
   <fieldset class="tm-mem"><legend>${esc(t('orgMembers'))}</legend>
    ${pool.map(([u,m])=>{const other=m.teamId&&m.teamId!==id?S.teams[m.teamId]:null;return `<label class="tm-row"><input type="checkbox" class="tm-mb" value="${esc(u)}"${id&&m.teamId===id?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline||'ARC')}${m.sysRole==='lead'?`<span class="pill run">${esc(t('roleLeadN'))}</span>`:''}${other?`<span class="muted tm-o" dir="auto">${esc(other.name)}</span>`:''}</label>`}).join('')}
   </fieldset><div class="muted" style="font-size:12px">${esc(t('orgMoveHint'))}</div>`,footSave(id?'team-del':null)));
@@ -1535,7 +1539,7 @@ function teamModal(id){
 const fv=id=>{const el=document.getElementById(id);return el?el.value.trim():''};
 async function saveTeam(M){
  const name=fv('tm-name');if(!name)return;
- const body={id:M.id||null,name,discipline:fv('tm-disc'),color:fv('tm-color'),leadId:fv('tm-lead')||null,parentId:fv('tm-parent')||null,members:[...document.querySelectorAll('.tm-mb:checked')].map(i=>i.value)};
+ const body={id:M.id||null,name,discipline:fv('tm-disc'),color:fv('tm-color'),leadId:fv('tm-lead')||null,parentId:fv('tm-parent')||null,members:[...document.querySelectorAll('.tm-mb:checked')].map(i=>i.value),administrative:!!(document.getElementById('tm-admin')||{}).checked};
  try{await api('team_save',body)}catch(e){return dlgErr(errText(e))}
  closeModal();toast(t('saved'));refresh();
 }
@@ -2231,7 +2235,7 @@ function clientsAltHtml(list){const v=S.clv||'cards';const st={};for(const c of 
 function capacityHtml(){
  const today=dateKey(new Date());const W=S.capW||4;const w0=weekStartOf(today,'DE');const weeks=[...Array(W)].map((_,i)=>addDays(w0,7*i));const end=addDays(weeks[W-1],6);
  const ft=S.capTeamF||'';
- let people=Object.entries(S.members).filter(([u,m])=>m.active!==false&&!m.deleted&&inMyScope(u)&&(!ft||m.teamId===ft)).map(([u])=>u);
+ let people=Object.entries(S.members).filter(([u,m])=>m.active!==false&&!m.deleted&&inMyScope(u)&&!isAdminUser(u)&&(!ft||m.teamId===ft)).map(([u])=>u);
  const load={},avail={},full={},later={},unsched={},noest={},items={};
  for(const u of people){load[u]=weeks.map(()=>0);avail[u]=weeks.map(()=>0);full[u]=weeks.map(()=>0);later[u]=0;unsched[u]=[];noest[u]=[];items[u]=[];
   const dm=dailyMin(u);const m=S.members[u]||{};
@@ -3319,7 +3323,9 @@ Object.assign(T.en,{vPlan:'Schedule',plImport:'Import from MS Project',plExport:
  genPw:'Generate',credTitle:'Sign-in details',credHint:'Send these to the engineer now: the temporary password isn’t shown again once you close this window. They choose their own password the first time they sign in.',credCopy:'Copy message',credWa:'WhatsApp',credTg:'Telegram',credMail:'Email',credLang:'Message language',
  credMsgAr:'مرحباً {n}،\nتم إنشاء حسابك على لوحة فريق TECTOVA.\n\nالرابط: {u}\nالبريد: {e}\nكلمة السر المؤقتة: {p}\n\nعند أول دخول ستختار كلمة سر خاصة بك.',
  credMsgEn:'Hello {n},\nyour TECTOVA Team Desk account is ready.\n\nLink: {u}\nEmail: {e}\nTemporary password: {p}\n\nYou will choose your own password the first time you sign in.',credSubject:'TECTOVA Team Desk – sign-in details'});
-Object.assign(ERRMSG,{dep_loop:'dep_loop_e',cant_self:'cant_self_e'});
+Object.assign(ERRMSG,{dep_loop:'dep_loop_e',cant_self:'cant_self_e',no_project_hours:'noHoursErr'});
+Object.assign(T.ar,{tmAdmin:'قسم إداري (بدون ساعات مشاريع)',tmAdminHint:'أعضاء القسم الإداري ما بيسجّلوا ساعات على المشاريع (مثل المحاسبة). بيظهروا بالهيكل والإجازات بس بدون تحميل ساعات ولا مهام.',adminDept:'إداري',noHoursErr:'القسم إداري، ما في تسجيل ساعات على المشاريع لأعضائه.'});
+Object.assign(T.en,{tmAdmin:'Administrative department (no project hours)',tmAdminHint:'Members of an administrative department don’t log hours on projects (e.g. accounting). They still appear in the org and leave, just without time tracking or tasks.',adminDept:'Admin',noHoursErr:'This is an administrative department; its members don’t log hours on projects.'});
 TVIEWS.push('plan');TV_LABEL.plan='vPlan';
 TV_ICON.plan='<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M1.5 3h3M1.5 8h3M1.5 13h3"/><rect x="6" y="1.8" width="5" height="2.4" rx=".6"/><rect x="9" y="6.8" width="5.5" height="2.4" rx=".6"/><path d="M11 4.2v2.6"/><path d="M13.5 12.5l-1.3-1.3v2.6z" fill="currentColor"/><path d="M6 13h6"/></svg>';
 

@@ -591,7 +591,7 @@ try {
             foreach ($cmtP as $k => $v) { $cmtP[$k]['last'] = isset($byId[$v['lastId']]) ? $snip($byId[$v['lastId']]) : null; unset($cmtP[$k]['lastId']); }
         }
         $teams = array_map(fn($t) => ['id' => sid($t['id']), 'name' => $t['name'], 'discipline' => $t['discipline'], 'color' => $t['color'],
-            'leadId' => sid($t['lead_id']), 'parentId' => sid($t['parent_id']), 'sort' => (int)$t['sort']], q('SELECT * FROM td_teams ORDER BY sort, name')->fetchAll());
+            'leadId' => sid($t['lead_id']), 'parentId' => sid($t['parent_id']), 'sort' => (int)$t['sort'], 'administrative' => (int)$t['administrative']], q('SELECT * FROM td_teams ORDER BY sort, name')->fetchAll());
         $y = (int)gmdate('Y');
         $holidays = array_map(fn($h) => ['id' => sid($h['id']), 'country' => $h['country'], 'day' => $h['day'], 'name' => $h['name']],
             q('SELECT * FROM td_holidays WHERE day BETWEEN ? AND ? ORDER BY day', [($y - 1) . '-01-01', ($y + 1) . '-12-31'])->fetchAll());
@@ -641,6 +641,7 @@ try {
 
     /* ----- time tracking (always the signed-in user's own time) ----- */
     case 'timer_start': {
+        if (user_is_admin_dept($uid)) throw new ApiError('no_project_hours', 403);
         $p = project_row(s_int($in['projectId'] ?? null));
         if ($p['status'] === 'closed') throw new ApiError('project_closed');
         $tid = check_task_for_project(s_int($in['taskId'] ?? null), (int)$p['id']);
@@ -684,6 +685,7 @@ try {
     }
 
     case 'entry_add': {
+        if (user_is_admin_dept($uid)) throw new ApiError('no_project_hours', 403);
         $p = project_row(s_int($in['projectId'] ?? null));
         $tid = check_task_for_project(s_int($in['taskId'] ?? null), (int)$p['id']);
         $start = (int)($in['start'] ?? 0);
@@ -1354,11 +1356,12 @@ try {
             }
         }
         $members = is_array($in['members'] ?? null) ? array_values(array_unique(array_filter(array_map('intval', $in['members'])))) : null;
+        $administrative = !empty($in['administrative']) ? 1 : 0;
         db()->beginTransaction();
         if ($tid) {
-            q('UPDATE td_teams SET name = ?, discipline = ?, color = ?, lead_id = ?, parent_id = ? WHERE id = ?', [$name, $disc, $color, $lead, $parent, $tid]);
+            q('UPDATE td_teams SET name = ?, discipline = ?, color = ?, lead_id = ?, parent_id = ?, administrative = ? WHERE id = ?', [$name, $disc, $color, $lead, $parent, $administrative, $tid]);
         } else {
-            q('INSERT INTO td_teams (name, discipline, color, lead_id, parent_id, sort, created_at) VALUES (?,?,?,?,?,0,NOW())', [$name, $disc, $color, $lead, $parent]);
+            q('INSERT INTO td_teams (name, discipline, color, lead_id, parent_id, administrative, sort, created_at) VALUES (?,?,?,?,?,?,0,NOW())', [$name, $disc, $color, $lead, $parent, $administrative]);
             $tid = (int)db()->lastInsertId();
         }
         if ($members !== null) {
