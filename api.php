@@ -22,7 +22,7 @@ function user_out(array $u, bool $withEmail): array
     $o = ['id' => sid($u['id']), 'name' => $u['name'], 'country' => $u['country'], 'discipline' => $u['discipline'],
         'jobTitle' => $u['job_title'], 'role' => $u['role'], 'active' => (bool)$u['active'], 'dailyHours' => (float)$u['daily_hours'],
         'workDays' => user_workdays($u), 'leadId' => sid($u['lead_id']), 'leaveAllowance' => (float)$u['leave_allowance'], 'tg' => !empty($u['tg_chat']), 'teamId' => sid($u['team_id'] ?? null), 'deleted' => !empty($u['deleted']),
-        'roleId' => sid($u['role_id'] ?? null), 'weeklyHours' => isset($u['weekly_hours']) && $u['weekly_hours'] !== null ? (float)$u['weekly_hours'] : null];
+        'topMgmt' => (bool)($u['top_mgmt'] ?? false), 'roleId' => sid($u['role_id'] ?? null), 'weeklyHours' => isset($u['weekly_hours']) && $u['weekly_hours'] !== null ? (float)$u['weekly_hours'] : null];
     if ($withEmail) { $o['email'] = $u['email']; $o['notify'] = (bool)$u['notify']; $o['phone'] = (string)($u['phone'] ?? ''); }
     return $o;
 }
@@ -1040,7 +1040,8 @@ try {
         if ($dupe) throw new ApiError('email_taken', 409);
         $name = s_str($in['name'] ?? '', 120, true);
         $country = s_enum($in['country'] ?? 'DE', TD_COUNTRIES, 'DE');
-        $disc = s_enum($in['discipline'] ?? 'ARC', TD_DISC, 'ARC');
+        $disc = ($in['discipline'] ?? '') === '' ? '' : s_enum($in['discipline'], TD_DISC, 'ARC');
+        $topMgmt = !empty($in['topMgmt']) ? 1 : 0;
         $title = s_str($in['jobTitle'] ?? '', 120);
         /* a built-in role, or "c<id>" for a role the Admin made: the person works like a team leader when that role has "lead" */
         $roleId = null;
@@ -1074,7 +1075,7 @@ try {
             if ((int)$row['id'] === $uid) { $role = $row['role']; $roleId = $row['role_id'] !== null ? (int)$row['role_id'] : null; $active = 1; }
             q('UPDATE td_users SET email=?, name=?, country=?, discipline=?, job_title=?, role=?, active=?, daily_hours=?, notify=?, work_days=?, leave_allowance=? WHERE id=?',
                 [$email, $name, $country, $disc, $title, $role, $active, $daily, $notify, $wd, $allow, $id]);
-            q('UPDATE td_users SET role_id = ?, weekly_hours = ? WHERE id = ?', [$roleId, $weekly, $id]);
+            q('UPDATE td_users SET role_id = ?, weekly_hours = ?, top_mgmt = ? WHERE id = ?', [$roleId, $weekly, $topMgmt, $id]);
             if ($teamIn) q('UPDATE td_users SET team_id = ? WHERE id = ?', [$teamId, $id]);
             if ($phoneIn) q('UPDATE td_users SET phone = ? WHERE id = ?', [$phone, $id]);
             /* Someone who is no longer a team leader can't keep leading a team. */
@@ -1089,7 +1090,7 @@ try {
             q('INSERT INTO td_users (email, pass_hash, name, country, discipline, job_title, role, active, daily_hours, notify, work_days, leave_allowance, team_id, must_change_pw, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,1,NOW())',
                 [$email, password_hash($pw, PASSWORD_DEFAULT), $name, $country, $disc, $title, $role, $active, $daily, $notify, $wd, $allow, $teamId]);
             $id = (int)db()->lastInsertId();
-            q('UPDATE td_users SET role_id = ?, weekly_hours = ? WHERE id = ?', [$roleId, $weekly, $id]);
+            q('UPDATE td_users SET role_id = ?, weekly_hours = ?, top_mgmt = ? WHERE id = ?', [$roleId, $weekly, $topMgmt, $id]);
             if ($phoneIn) q('UPDATE td_users SET phone = ? WHERE id = ?', [$phone, $id]);
         }
         sync_team_leads();

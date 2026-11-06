@@ -167,7 +167,7 @@ function s_ym($v): string
 }
 
 /* ---------- schema: versioned migrations, applied automatically ---------- */
-const TD_SCHEMA_VERSION = 21;
+const TD_SCHEMA_VERSION = 22;
 function td_migrations(): array
 {
     return [
@@ -372,6 +372,11 @@ function td_migrations(): array
         21 => [
             /* administrative departments (e.g. accounting): their members do not log hours on projects */
             "ALTER TABLE td_teams ADD COLUMN administrative TINYINT(1) NOT NULL DEFAULT 0",
+        ],
+        22 => [
+            /* top management: shown at the top of the org chart regardless of team-lead status */
+            "ALTER TABLE td_users ADD COLUMN top_mgmt TINYINT(1) NOT NULL DEFAULT 0",
+            "UPDATE td_users SET top_mgmt = 1 WHERE role = 'owner' AND id NOT IN (SELECT lead_id FROM td_teams WHERE lead_id IS NOT NULL)",
         ],
     ];
 }

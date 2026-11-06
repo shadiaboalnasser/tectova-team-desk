@@ -198,7 +198,7 @@ async function load(){
  const d=await api('bootstrap');
  S.csrf=d.csrf;S.me=d.me;S.uid=d.me.id;S.isOwner=d.me.role==='owner';S.isAcc=d.me.role==='accountant';S.P=new Set(d.me.perms||[]);S.isFin=S.P.has('finance');S.roles=d.roles||[];S.rolePerms=d.rolePerms||{};S.rolePermsDef=d.rolePermsDef||{};S.skills=d.skills||[];S.skillLv=d.skillLv||{};S.clockSkew=d.now-Date.now();
  const mem={};S.leads=[];S.ownerUid=null;
- for(const u of d.users){mem[u.id]={name:u.name,country:u.country,discipline:u.discipline,role:u.jobTitle,active:u.active,email:u.email||'',phone:u.phone||'',sysRole:u.role,dailyHours:u.dailyHours||8,notify:u.notify!==false,workDays:Array.isArray(u.workDays)&&u.workDays.length?u.workDays:[6,0,1,2,3,4],leadId:u.leadId||'',leaveAllowance:u.leaveAllowance??15,tg:!!u.tg,teamId:u.teamId||'',deleted:!!u.deleted,roleId:u.roleId||null,weeklyHours:u.weeklyHours||null};if(u.role==='lead')S.leads.push(u.id);if(u.role==='owner')S.ownerUid=u.id}
+ for(const u of d.users){mem[u.id]={name:u.name,country:u.country,discipline:u.discipline,role:u.jobTitle,active:u.active,email:u.email||'',phone:u.phone||'',topMgmt:!!u.topMgmt,sysRole:u.role,dailyHours:u.dailyHours||8,notify:u.notify!==false,workDays:Array.isArray(u.workDays)&&u.workDays.length?u.workDays:[6,0,1,2,3,4],leadId:u.leadId||'',leaveAllowance:u.leaveAllowance??15,tg:!!u.tg,teamId:u.teamId||'',deleted:!!u.deleted,roleId:u.roleId||null,weeklyHours:u.weeklyHours||null};if(u.role==='lead')S.leads.push(u.id);if(u.role==='owner')S.ownerUid=u.id}
  S.members=mem;
  const pr={};for(const p of d.projects)pr[p.id]=Object.assign({},p,{_o:p.createdBy});S.projects=pr;
  const tk={};for(const x of d.tasks)tk[x.id]=Object.assign({},x,{_o:x.createdBy});S.tasks=tk;
@@ -800,7 +800,7 @@ function teamHtml(){
  const cym=ymOf(new Date());if(pm('team')&&!S.report[cym])loadReport(cym);const rep=S.report[cym];
  const cards=ms.map(([u,m])=>{const e=S.entryDocs[u];const r=e&&e.running;const mins=rep&&rep.items?summarize(rep.items[u]).total:null;
   return `<article class="tcard"${m.active===false?' style="opacity:.6"':''}>
-   <div class="who">${avatar(u,36)}<div style="min-width:0"><div class="nm">${esc(m.name)}${u===S.uid?` <span class="muted">(${esc(t('you'))})</span>`:''}</div><div style="display:flex;gap:4px;flex-wrap:wrap">${memberRolePill(u)}${isAdminUser(u)?`<span class="pill acc">${esc(t('adminDept'))}</span>`:''}</div><div class="rl">${esc(m.role||t(m.discipline||'ARC'))}</div>${pm('team')&&m.email?`<div class="email">${esc(m.email)}${m.phone?' · '+esc(m.phone):''}</div>`:''}</div>${S.isOwner?`<button class="btn ghost sm" style="margin-inline-start:auto" data-act="edit-member" data-id="${esc(u)}">${esc(t('edit'))}</button>`:''}</div>
+   <div class="who">${avatar(u,36)}<div style="min-width:0"><div class="nm">${esc(m.name)}${u===S.uid?` <span class="muted">(${esc(t('you'))})</span>`:''}</div><div style="display:flex;gap:4px;flex-wrap:wrap">${memberRolePill(u)}${isAdminUser(u)?`<span class="pill acc">${esc(t('adminDept'))}</span>`:''}</div><div class="rl">${esc(m.role||(m.discipline?t(m.discipline):''))}</div>${pm('team')&&m.email?`<div class="email">${esc(m.email)}${m.phone?' · '+esc(m.phone):''}</div>`:''}</div>${S.isOwner?`<button class="btn ghost sm" style="margin-inline-start:auto" data-act="edit-member" data-id="${esc(u)}">${esc(t('edit'))}</button>`:''}</div>
    <div class="loc"><span>${esc(t(m.country||'DE'))} · ${esc(t('localTime'))}</span><b data-tz="${esc(m.country||'DE')}">${localNow(m.country)}</b></div>
    ${m.discipline?`<div><span class="badge">${esc(m.discipline)}</span> <span class="muted" style="font-size:12.5px">${esc(t(m.discipline))}</span>${m.active===false?` <span class="pill mute">${esc(t('inactive'))}</span>`:''}</div>`:''}
    ${S.isOwner?`<div class="status${r?' on':''}">${r?`<b>${esc(t('workingOn'))}</b> ${esc(pLabel(r.projectId))}${r.taskId&&S.tasks[r.taskId]?' — '+esc(S.tasks[r.taskId].title):''} · <span dir="ltr" data-tick="${r.start}">${clock(srvNow()-r.start)}</span>`:esc(t('idle'))}</div>
@@ -1494,14 +1494,14 @@ function teamOptions(sel,exclude){const ex=exclude||new Set();const rows=[];
  const walk=(pid,depth)=>kidsOf(pid).forEach(t=>{if(ex.has(t.id))return;rows.push(`<option value="${esc(t.id)}"${t.id===sel?' selected':''}>${'— '.repeat(depth)}${esc(t.name)}</option>`);walk(t.id,depth+1)});
  walk('',0);return rows.join('')}
 function descOf(id){const out=new Set([id]);const st=[id];while(st.length){const x=st.pop();kidsOf(x).forEach(k=>{if(!out.has(k.id)){out.add(k.id);st.push(k.id)}})}return out}
-const discBadge=d=>`<span class="dbadge" style="--dc:${esc(DCOL[d]||'#6B7785')}" title="${esc(t(d))}">${esc(d)}</span>`;
+const discBadge=d=>d?`<span class="dbadge" style="--dc:${esc(DCOL[d]||'#6B7785')}" title="${esc(t(d))}">${esc(d)}</span>`:'';
 
 function orgStats(uid,tk){const open=Object.values(S.tasks).filter(x=>x.assignee===uid&&x.status!=='done');return{open:open.length,late:open.filter(x=>lateEng(x,tk)).length}}
 function orgMember(u,tk,lead){const m=S.members[u]||{};const st=orgStats(u,tk);const f=S.orgDisc;const dim=f&&m.discipline!==f;const away=leaveOn(u,tk);
  const click=seesTeam()&&inMyScope(u);
  return `<${click?'button type="button" data-act="hm-person" data-id="'+esc(u)+'"':'div'} class="om${lead?' om-lead':''}${dim?' dim':''}${u===S.uid?' me':''}" style="--dc:${esc(DCOL[m.discipline]||'#6B7785')}">
   ${avatar(u,lead?34:28)}<span class="om-t"><b dir="auto">${esc(m.name||'')}</b><small dir="auto">${esc(m.role||t(ROLE_KEY[m.sysRole]||'roleEng'))}</small></span>
-  <span class="om-r">${discBadge(m.discipline||'ARC')}${away?`<span class="pill mute">${esc(t('hmOnLeave'))}</span>`:''}${st.open?`<span class="om-s${st.late?' bad':''}" title="${esc(t('openTasks'))}${st.late?' · '+esc(t('overdue'))+': '+st.late:''}">${st.open}${st.late?` · ${st.late}!`:''}</span>`:''}</span></${click?'button':'div'}>`}
+  <span class="om-r">${discBadge(m.discipline)}${away?`<span class="pill mute">${esc(t('hmOnLeave'))}</span>`:''}${st.open?`<span class="om-s${st.late?' bad':''}" title="${esc(t('openTasks'))}${st.late?' · '+esc(t('overdue'))+': '+st.late:''}">${st.open}${st.late?` · ${st.late}!`:''}</span>`:''}</span></${click?'button':'div'}>`}
 function orgTeam(tm,tk,depth){
  const members=Object.entries(S.members).filter(([u,m])=>m.teamId===tm.id&&m.active!==false&&u!==tm.leadId).map(([u])=>u)
   .sort((a,b)=>(S.members[a].discipline||'').localeCompare(S.members[b].discipline||'')||memberName(a).localeCompare(memberName(b)));
@@ -1532,7 +1532,7 @@ function teamModal(id){
   <label class="chk"><input type="checkbox" id="tm-admin"${tm.administrative?' checked':''}> ${esc(t('tmAdmin'))}</label>
   <div class="muted" style="font-size:12px">${esc(t('tmAdminHint'))}</div>
   <fieldset class="tm-mem"><legend>${esc(t('orgMembers'))}</legend>
-   ${pool.map(([u,m])=>{const other=m.teamId&&m.teamId!==id?S.teams[m.teamId]:null;return `<label class="tm-row"><input type="checkbox" class="tm-mb" value="${esc(u)}"${id&&m.teamId===id?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline||'ARC')}${m.sysRole==='lead'?`<span class="pill run">${esc(t('roleLeadN'))}</span>`:''}${other?`<span class="muted tm-o" dir="auto">${esc(other.name)}</span>`:''}</label>`}).join('')}
+   ${pool.map(([u,m])=>{const other=m.teamId&&m.teamId!==id?S.teams[m.teamId]:null;return `<label class="tm-row"><input type="checkbox" class="tm-mb" value="${esc(u)}"${id&&m.teamId===id?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline)}${m.sysRole==='lead'?`<span class="pill run">${esc(t('roleLeadN'))}</span>`:''}${other?`<span class="muted tm-o" dir="auto">${esc(other.name)}</span>`:''}</label>`}).join('')}
   </fieldset><div class="muted" style="font-size:12px">${esc(t('orgMoveHint'))}</div>`,footSave(id?'team-del':null)));
  S.modal={kind:'team',id};
 }
@@ -1567,7 +1567,7 @@ const orgLoose=()=>orgPeopleAll().filter(u=>!(S.members[u]||{}).teamId&&!teamLis
 /* --- 1. org chart: boxes from the top down, joined by lines --- */
 function ocPerson(u,tk,lead,label){const m=S.members[u]||{};const st=orgStats(u,tk);const dim=S.orgDisc&&m.discipline!==S.orgDisc;const click=seesTeam()&&inMyScope(u);
  return `<${click?`button type="button" data-act="hm-person" data-id="${esc(u)}"`:'div'} class="oc-p${lead?' lead':''}${dim?' dim':''}${u===S.uid?' me':''}" style="--dc:${esc(DCOL[m.discipline]||'#6B7785')}" title="${esc((m.name||'')+' · '+(m.role||''))}">
-  ${avatar(u,lead?30:22)}<span class="oc-pt"><b dir="auto">${esc(m.name||'')}</b>${label?`<small>${esc(label)}</small>`:lead?`<small>${esc(t('orgLeader'))}</small>`:`<small dir="auto">${esc(m.role||'')}</small>`}</span>${discBadge(m.discipline||'ARC')}${st.late?`<span class="oc-late" title="${esc(t('overdue'))}">${st.late}</span>`:''}</${click?'button':'div'}>`}
+  ${avatar(u,lead?30:22)}<span class="oc-pt"><b dir="auto">${esc(m.name||'')}</b>${label?`<small>${esc(label)}</small>`:lead?`<small>${esc(t('orgLeader'))}</small>`:`<small dir="auto">${esc(m.role||'')}</small>`}</span>${discBadge(m.discipline)}${st.late?`<span class="oc-late" title="${esc(t('overdue'))}">${st.late}</span>`:''}</${click?'button':'div'}>`}
 function ocTeam(tm,tk){
  const mem=teamMembersOf(tm);const all=[...mem,...(tm.leadId?[tm.leadId]:[])];const late=all.reduce((s,u)=>s+orgStats(u,tk).late,0);
  const mine=tm.leadId===S.uid||(S.members[S.uid]||{}).teamId===tm.id;const hit=S.orgDisc&&tm.discipline===S.orgDisc;const kids=kidsOf(tm.id);
@@ -1622,14 +1622,14 @@ function orgTableHtml(tk){
  <div class="sheet"><div class="tbl-wrap"><table class="t otbl"><thead><tr>${th('name','name')}${th('disc','discipline')}${th('team','orgTeamLbl')}${th('lead','orgLeader')}${th('role','sysRole')}${th('open','hmOpen','n')}${th('late','hmLate','n')}</tr></thead><tbody>
  ${rows.map(r=>{const click=seesTeam()&&inMyScope(r.u);return `<tr class="${r.u===S.uid?'me':''}${click?' clk':''}"${click?` data-act="hm-person" data-id="${esc(r.u)}"`:''}>
   <td><span class="who">${avatar(r.u,26)}<span class="nm" style="display:grid;line-height:1.25"><b dir="auto">${esc(r.name)}</b><small class="muted" dir="auto" style="font-weight:400;font-size:11.5px">${esc(r.m.role||'')}</small></span></span></td>
-  <td>${discBadge(r.disc||'ARC')}</td><td dir="auto">${r.team?esc(r.team):`<span class="muted">${esc(t('orgNoTeamOpt'))}</span>`}${r.leads.length?` <span class="pill run">${esc(t('ovLeads'))}: ${esc(r.leads.join('، '))}</span>`:''}</td>
+  <td>${discBadge(r.disc)}</td><td dir="auto">${r.team?esc(r.team):`<span class="muted">${esc(t('orgNoTeamOpt'))}</span>`}${r.leads.length?` <span class="pill run">${esc(t('ovLeads'))}: ${esc(r.leads.join('، '))}</span>`:''}</td>
   <td dir="auto">${r.lead?esc(r.lead):'<span class="muted">—</span>'}</td><td>${esc(r.role)}</td><td class="n">${r.open}</td><td class="n${r.late?' over':''}">${r.late||'—'}</td></tr>`}).join('')||`<tr><td colspan="7"><div class="empty"><span>${esc(t('ovNone'))}</span></div></td></tr>`}
  </tbody></table></div></div>`;
 }
 
 function orgHtml(){
  const tk=todayK();const act=Object.entries(S.members).filter(([,m])=>m.active!==false);
- const teamLeadIds=new Set(Object.values(S.teams).map(tm=>tm.leadId).filter(Boolean));const admins=act.filter(([u,m])=>m.sysRole==='owner'&&!teamLeadIds.has(u)).map(([u])=>u);const fin=act.filter(([u,m])=>m.sysRole==='accountant'&&!teamLeadIds.has(u)).map(([u])=>u);
+ const admins=act.filter(([u,m])=>m.topMgmt&&m.sysRole!=='accountant').map(([u])=>u);const fin=act.filter(([u,m])=>m.topMgmt&&m.sysRole==='accountant').map(([u])=>u);
  const counts={};for(const[,m]of act)if(m.sysRole!=='owner'&&m.sysRole!=='accountant')counts[m.discipline]=(counts[m.discipline]||0)+1;
  const n=isLead()?myMembers().size:0;if(S.orgView==='admin'&&!(S.isOwner||S.isFin||pm('team')))S.orgView='people';const v=S.orgView;
  const seg=`<div class="tv-bar"><div class="seg" role="tablist" aria-label="${esc(t('ovViews'))}">${OVIEWS.filter(k=>k!=='admin'||S.isOwner||S.isFin||pm('team')).map(k=>`<button type="button" role="tab" aria-selected="${k===v}" data-act="ov" data-v="${k}">${OV_ICON[k]}<span>${esc(t(OV_LABEL[k]))}</span></button>`).join('')}</div></div>`;
@@ -1808,7 +1808,7 @@ function guestPicker(sel){const set=new Set(sel||[]);
  const quick=[['ev-g-my',t('evMyTeam'),isLead()||(S.members[S.uid]||{}).teamId],...teamList().map(x=>['ev-g-team:'+x.id,x.name,true]),['ev-g-all',t('evAll'),true],['ev-g-none',t('evNoneSel'),true]].filter(q=>q[2]);
  return `<fieldset class="tm-mem ev-gp"><legend>${esc(t('evGuests'))} <span class="code" id="ev-gn">${set.size}</span></legend>
   <div class="ev-q">${quick.map(([k,l])=>`<button type="button" class="dchip" data-act="ev-gq" data-v="${esc(k)}">${esc(l)}</button>`).join('')}</div>
-  ${people.map(([u,m])=>`<label class="tm-row"><input type="checkbox" class="ev-gu" value="${esc(u)}"${set.has(u)?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline||'ARC')}${m.teamId&&S.teams[m.teamId]?`<span class="muted tm-o" dir="auto">${esc(S.teams[m.teamId].name)}</span>`:''}</label>`).join('')}</fieldset>`}
+  ${people.map(([u,m])=>`<label class="tm-row"><input type="checkbox" class="ev-gu" value="${esc(u)}"${set.has(u)?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline)}${m.teamId&&S.teams[m.teamId]?`<span class="muted tm-o" dir="auto">${esc(S.teams[m.teamId].name)}</span>`:''}</label>`).join('')}</fieldset>`}
 function eventModal(id,day){
  const e=id?evById(id):null;if(id&&!e)return;
  if(e&&e.createdBy!==S.uid)return eventView(e);
@@ -1886,7 +1886,7 @@ function taskProjOptions(sel){if(allP()||!isLead())return projOptions(sel,true);
  return `<option value="">${esc(t('chooseProject'))}</option>`+projList(true).filter(p=>leadProj(p.id)||p.id===sel).map(p=>`<option value="${esc(p.id)}"${p.id===sel?' selected':''}>${esc((p.code?p.code+' · ':'')+p.name)}</option>`).join('')}
 function leadsPicker(p){const leads=Object.entries(S.members).filter(([,m])=>m.sysRole==='lead'&&m.active!==false);const cur=new Set(p.leads||[]);
  return `<div class="f pj-leads" role="group" aria-labelledby="pj-leads-l"><span class="tp-l" id="pj-leads-l">${esc(t('pjLeads'))}</span><div class="muted" style="font-size:12px">${esc(t('pjLeadsHint'))}</div><div class="tm-mem">
-  ${leads.map(([u,m])=>`<label class="tm-row"><input type="checkbox" class="pj-lead" value="${esc(u)}"${cur.has(u)?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline||'ARC')}${m.teamId&&S.teams[m.teamId]?`<span class="muted tm-o" dir="auto">${esc(S.teams[m.teamId].name)}</span>`:''}</label>`).join('')||`<span class="muted">${esc(t('pjNoLeads'))}</span>`}</div></div>`}
+  ${leads.map(([u,m])=>`<label class="tm-row"><input type="checkbox" class="pj-lead" value="${esc(u)}"${cur.has(u)?' checked':''}>${avatar(u,22)}<span class="tm-nm" dir="auto">${esc(m.name)}</span>${discBadge(m.discipline)}${m.teamId&&S.teams[m.teamId]?`<span class="muted tm-o" dir="auto">${esc(S.teams[m.teamId].name)}</span>`:''}</label>`).join('')||`<span class="muted">${esc(t('pjNoLeads'))}</span>`}</div></div>`}
 function clientPicker(p){const cl=clientList();
  return `<label class="f">${esc(t('client'))}<select class="in" id="pj-clientid"><option value="">${esc(t('clNoneOpt'))}</option>${cl.map(c=>`<option value="${esc(c.id)}"${c.id===p.clientId?' selected':''}>${esc(c.name)}</option>`).join('')}</select>
   ${canAddClients()?`<span class="copyrow"><input class="in" id="pj-newclient" maxlength="160" placeholder="${esc(t('clQuickPh'))}"><button type="button" class="btn sm" data-act="pj-client-add">+ ${esc(t('add'))}</button></span>`:''}</label>`}
@@ -2935,13 +2935,14 @@ function userModal(uid){
    <label class="f">${esc(t('email'))}<input class="in" type="email" id="mb-email" required maxlength="190" value="${esc(m.email||'')}" dir="ltr" autocomplete="off"></label>
    <label class="f">${esc(t('phone'))}<input class="in" type="tel" id="mb-phone" maxlength="24" value="${esc(m.phone||'')}" dir="ltr" autocomplete="off" placeholder="+963 9xx xxx xxx"></label></div>
   <div class="frow"><label class="f">${esc(t('country'))}<select class="in" id="mb-country">${Object.keys(COUNTRIES).map(c=>`<option value="${c}"${c===m.country?' selected':''}>${esc(t(c))}</option>`).join('')}</select></label>
-   <label class="f">${esc(t('discipline'))}<select class="in" id="mb-disc">${DISC.map(d=>`<option value="${d}"${d===m.discipline?' selected':''}>${esc(t(d))}</option>`).join('')}</select></label></div>
+   <label class="f">${esc(t('discipline'))}<select class="in" id="mb-disc"><option value="">${esc(t('discNone'))}</option>${DISC.map(d=>`<option value="${d}"${d===m.discipline?' selected':''}>${esc(t(d))}</option>`).join('')}</select></label></div>
   <div class="frow"><label class="f">${esc(t('role'))}<input class="in" id="mb-role" maxlength="120" value="${esc(m.role||'')}" placeholder="BIM Modeler / Revit Engineer"></label>
    <label class="f">${esc(t('sysRole'))}<select class="in" id="mb-sys"${isSelf?' disabled':''}>${[['employee','roleEng','engHint'],['lead','roleLeadN','leadHint'],['accountant','roleAcc','accHint'],['owner','roleAdmin','adminHint']].filter(([v])=>v!=='owner'||S.isOwner).map(([v,l,h])=>`<option value="${v}"${v===cur?' selected':''}>${esc(t(l))} · ${esc(t(h))}</option>`).join('')}${(S.roles||[]).length?`<optgroup label="${esc(t('rlCustom'))}">${S.roles.map(r=>`<option value="c${esc(r.id)}"${'c'+r.id===cur?' selected':''}>${esc(r.name)}</option>`).join('')}</optgroup>`:''}</select>${isSelf?`<span class="muted" style="font-size:12px;font-weight:400">${esc(t('cantSelf'))}</span>`:''}</label></div>
   <label class="f">${esc(uid?t('resetPw'):t('tempPw'))}<span class="copyrow"><input class="in" type="text" id="mb-pass" ${uid?'':'required'} minlength="8" maxlength="200" dir="ltr" autocomplete="off" value="${uid?'':esc(tempPassword())}"><button type="button" class="btn sm" data-act="gen-pw">${esc(t('genPw'))}</button></span></label>
   <div class="frow"><label class="f">${esc(t('weeklyHours'))}<input class="in num" id="mb-weekly" inputmode="decimal" value="${esc(uid?weeklyOf(uid):40)}"><span class="muted" style="font-size:12px;font-weight:400">${esc(t('weeklyHint'))}</span></label><div></div></div>
   <div class="frow"><label class="f">${esc(t('orgTeamLbl'))}<select class="in" id="mb-team"><option value="">${esc(t('orgNoTeamOpt'))}</option>${teamOptions(m.teamId||'')}</select></label>
    <label class="f">${esc(t('annualAllowance'))}<input class="in num" id="mb-allow" inputmode="decimal" value="${esc(m.leaveAllowance??15)}"></label></div>
+  <label class="chk"><input type="checkbox" id="mb-top"${m.topMgmt?' checked':''}> ${esc(t('topMgmtLbl'))}</label>
   <fieldset class="wdays"><legend>${esc(t('workDays'))}</legend>${WEEK_ORDER.map(d=>`<label><input type="checkbox" class="mb-wd" value="${d}" ${(m.workDays||[6,0,1,2,3,4]).includes(d)?'checked':''}> ${esc(t('d'+d))}</label>`).join('')}</fieldset>
   <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mb-notify" ${m.notify!==false?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)"> ${esc(t('notifyLbl'))}</label>
   ${isSelf?'':`<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="mb-active" ${m.active!==false?'checked':''} style="width:18px;height:18px;accent-color:var(--accent)"> ${esc(t('activeMember'))}</label>`}
@@ -2999,7 +3000,7 @@ async function submitModal(){
  if(M.kind==='user'){
   const pw=v('mb-pass');if(pw&&pw.length<8)return dlgErr(t('pwRule'));if(!M.id&&!pw)return dlgErr(t('pwRule'));
   const act=document.getElementById('mb-active');
-  const body={id:M.id||null,name:v('mb-name'),email:v('mb-email'),phone:v('mb-phone'),country:v('mb-country'),discipline:v('mb-disc'),jobTitle:v('mb-role'),role:v('mb-sys')||'employee',active:act?act.checked:true,password:pw,weeklyHours:v('mb-weekly')||null,dailyHours:Math.min(16,Math.max(1,Math.round((num(v('mb-weekly'))||40)/Math.max(1,document.querySelectorAll('.mb-wd:checked').length)*10)/10)),notify:document.getElementById('mb-notify').checked,workDays:[...document.querySelectorAll('.mb-wd:checked')].map(i=>+i.value),teamId:v('mb-team')||null,leaveAllowance:v('mb-allow')||15};
+  const body={id:M.id||null,name:v('mb-name'),email:v('mb-email'),phone:v('mb-phone'),country:v('mb-country'),discipline:v('mb-disc'),jobTitle:v('mb-role'),role:v('mb-sys')||'employee',topMgmt:!!(document.getElementById('mb-top')||{}).checked,active:act?act.checked:true,password:pw,weeklyHours:v('mb-weekly')||null,dailyHours:Math.min(16,Math.max(1,Math.round((num(v('mb-weekly'))||40)/Math.max(1,document.querySelectorAll('.mb-wd:checked').length)*10)/10)),notify:document.getElementById('mb-notify').checked,workDays:[...document.querySelectorAll('.mb-wd:checked')].map(i=>+i.value),teamId:v('mb-team')||null,leaveAllowance:v('mb-allow')||15};
   if(!body.workDays.length)return dlgErr(t('noWorkdays'));
   try{await api('user_save',body)}catch(e){return dlgErr(errText(e))}
   closeModal();toast(M.id?t('saved'):t('memberAdded'));refresh();
@@ -3324,8 +3325,8 @@ Object.assign(T.en,{vPlan:'Schedule',plImport:'Import from MS Project',plExport:
  credMsgAr:'مرحباً {n}،\nتم إنشاء حسابك على لوحة فريق TECTOVA.\n\nالرابط: {u}\nالبريد: {e}\nكلمة السر المؤقتة: {p}\n\nعند أول دخول ستختار كلمة سر خاصة بك.',
  credMsgEn:'Hello {n},\nyour TECTOVA Team Desk account is ready.\n\nLink: {u}\nEmail: {e}\nTemporary password: {p}\n\nYou will choose your own password the first time you sign in.',credSubject:'TECTOVA Team Desk – sign-in details'});
 Object.assign(ERRMSG,{dep_loop:'dep_loop_e',cant_self:'cant_self_e',no_project_hours:'noHoursErr'});
-Object.assign(T.ar,{tmAdmin:'قسم إداري (بدون ساعات مشاريع)',tmAdminHint:'أعضاء القسم الإداري ما بيسجّلوا ساعات على المشاريع (مثل المحاسبة). بيظهروا بالهيكل والإجازات بس بدون تحميل ساعات ولا مهام.',adminDept:'إداري',noHoursErr:'القسم إداري، ما في تسجيل ساعات على المشاريع لأعضائه.'});
-Object.assign(T.en,{tmAdmin:'Administrative department (no project hours)',tmAdminHint:'Members of an administrative department don’t log hours on projects (e.g. accounting). They still appear in the org and leave, just without time tracking or tasks.',adminDept:'Admin',noHoursErr:'This is an administrative department; its members don’t log hours on projects.'});
+Object.assign(T.ar,{discNone:'— بدون اختصاص —',topMgmtLbl:'إدارة عليا (يظهر بقمة الهيكل)',tmAdmin:'قسم إداري (بدون ساعات مشاريع)',tmAdminHint:'أعضاء القسم الإداري ما بيسجّلوا ساعات على المشاريع (مثل المحاسبة). بيظهروا بالهيكل والإجازات بس بدون تحميل ساعات ولا مهام.',adminDept:'إداري',noHoursErr:'القسم إداري، ما في تسجيل ساعات على المشاريع لأعضائه.'});
+Object.assign(T.en,{discNone:'— No discipline —',topMgmtLbl:'Top management (shown at the top)',tmAdmin:'Administrative department (no project hours)',tmAdminHint:'Members of an administrative department don’t log hours on projects (e.g. accounting). They still appear in the org and leave, just without time tracking or tasks.',adminDept:'Admin',noHoursErr:'This is an administrative department; its members don’t log hours on projects.'});
 TVIEWS.push('plan');TV_LABEL.plan='vPlan';
 TV_ICON.plan='<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M1.5 3h3M1.5 8h3M1.5 13h3"/><rect x="6" y="1.8" width="5" height="2.4" rx=".6"/><rect x="9" y="6.8" width="5.5" height="2.4" rx=".6"/><path d="M11 4.2v2.6"/><path d="M13.5 12.5l-1.3-1.3v2.6z" fill="currentColor"/><path d="M6 13h6"/></svg>';
 
